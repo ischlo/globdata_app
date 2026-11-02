@@ -21,5 +21,7 @@ The `preview_app` branch is deployed by
 In the repository settings, set **Pages → Build and deployment → Source** to
 **GitHub Actions**, then add a repository Actions secret named
 `VITE_MAPBOX_TOKEN` containing a public Mapbox token with appropriate URL
-restrictions. Pushes to `preview_app` build the app and publish `dist/`; the
-Vite base path is derived from the repository name for project Pages URLs.
+restrictions, either as a repository secret or as a secret in the
+`github-pages` environment. Pushes to `preview_app` build the app and publish
+`dist/`; the Vite base path is derived from the repository name for project
+Pages URLs.
