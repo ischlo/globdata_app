@@ -26,12 +26,19 @@ const dataUrl = `${import.meta.env.BASE_URL}data/`;
 async function readDataset(file) {
   const url = `${dataUrl}${encodeURIComponent(file)}`;
   const response = await fetch(url, { headers: { Range: 'bytes=0-0' } });
-  if (response.status !== 206) throw Error(`could not determine the size of ${file} from its byte-range response`);
-  const contentRange = response.headers.get('content-range');
-  const match = contentRange?.match(/^bytes \d+-\d+\/(\d+)$/);
-  if (!match) throw Error(`invalid byte-range response for ${file}`);
-  await response.body?.cancel();
-  const fileBuffer = await asyncBufferFromUrl({ url, byteLength: Number(match[1]) });
+  let fileBuffer;
+  if (response.status === 206) {
+    const contentRange = response.headers.get('content-range');
+    const match = contentRange?.match(/^bytes \d+-\d+\/(\d+)$/);
+    if (!match) throw Error(`invalid byte-range response for ${file}`);
+    await response.body?.cancel();
+    fileBuffer = await asyncBufferFromUrl({ url, byteLength: Number(match[1]) });
+  } else if (response.status === 200) {
+    const buffer = await response.arrayBuffer();
+    fileBuffer = { byteLength: buffer.byteLength, slice: (start, end) => buffer.slice(start, end) };
+  } else {
+    throw Error(`could not read ${file} (${response.status})`);
+  }
   const rows = await parquetReadObjects({ file: fileBuffer });
   const result = validateRows(rows, file);
   return { ...result, rows, ...(datasetBounds(rows) || {}) };
