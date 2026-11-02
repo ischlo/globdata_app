@@ -5,7 +5,7 @@ import { DeckGL } from '@deck.gl/react';
 import { FlyToInterpolator } from '@deck.gl/core';
 import { H3HexagonLayer } from '@deck.gl/geo-layers';
 import { PolygonLayer, TextLayer, ScatterplotLayer } from '@deck.gl/layers';
-import { parquetReadObjects, asyncBufferFromUrl } from 'hyparquet';
+import { parquetReadObjects } from 'hyparquet';
 import { cellToBoundary, cellToLatLng, getResolution, latLngToCell } from 'h3-js';
 import { scaleSequential } from 'd3-scale';
 import { rgb } from 'd3-color';
@@ -25,20 +25,10 @@ export function validateRows(rows, file) { const errors = [], columns = rows.len
 const dataUrl = `${import.meta.env.BASE_URL}data/`;
 async function readDataset(file) {
   const url = `${dataUrl}${encodeURIComponent(file)}`;
-  const response = await fetch(url, { headers: { Range: 'bytes=0-0' } });
-  let fileBuffer;
-  if (response.status === 206) {
-    const contentRange = response.headers.get('content-range');
-    const match = contentRange?.match(/^bytes \d+-\d+\/(\d+)$/);
-    if (!match) throw Error(`invalid byte-range response for ${file}`);
-    await response.body?.cancel();
-    fileBuffer = await asyncBufferFromUrl({ url, byteLength: Number(match[1]) });
-  } else if (response.status === 200) {
-    const buffer = await response.arrayBuffer();
-    fileBuffer = { byteLength: buffer.byteLength, slice: (start, end) => buffer.slice(start, end) };
-  } else {
-    throw Error(`could not read ${file} (${response.status})`);
-  }
+  const response = await fetch(url);
+  if (!response.ok) throw Error(`could not read ${file} (${response.status})`);
+  const buffer = await response.arrayBuffer();
+  const fileBuffer = { byteLength: buffer.byteLength, slice: (start, end) => buffer.slice(start, end) };
   const rows = await parquetReadObjects({ file: fileBuffer });
   const result = validateRows(rows, file);
   return { ...result, rows, ...(datasetBounds(rows) || {}) };
@@ -52,7 +42,25 @@ function DetailPanel({ selected, sectors, plotChart, chartMin, chartDomainMax, h
 
 function App() {
   const [datasets, setDatasets] = useState([]), [warnings, setWarnings] = useState([]), [sector, setSector] = useState('ALL'), [palette, setPalette] = useState('viridis'), [selected, setSelected] = useState(null), [status, setStatus] = useState(''), [about, setAbout] = useState(false), [userLocation, setUserLocation] = useState(null), [viewState, setViewState] = useState({ longitude: 0, latitude: 20, zoom: 1.8 }); const mapRef = useRef(null);
-  useEffect(() => { fetch(`${dataUrl}manifest.json`).then((response) => { if (!response.ok) throw Error(`could not read dataset manifest (${response.status})`); return response.json(); }).then(async ({ files }) => { const loaded = await Promise.all(files.map((file) => readDataset(file).catch((error) => ({ valid: false, file, errors: [error.message] })))); setWarnings(loaded.filter((data) => !data.valid)); setDatasets(loaded.filter((data) => data.valid)); }).catch((error) => setWarnings([{ file: 'manifest', errors: [error.message] }])); }, []);
+  useEffect(() => {
+    fetch(`${dataUrl}manifest.json`)
+      .then((response) => {
+        if (!response.ok) throw Error(`could not read dataset manifest (${response.status})`);
+        return response.json();
+      })
+      .then(async ({ files }) => {
+        const loaded = [];
+        for (let start = 0; start < files.length; start += 6) {
+          const batch = await Promise.all(files.slice(start, start + 6).map((file) =>
+            readDataset(file).catch((error) => ({ valid: false, file, errors: [error.message] })),
+          ));
+          loaded.push(...batch);
+        }
+        setWarnings(loaded.filter((data) => !data.valid));
+        setDatasets(loaded.filter((data) => data.valid));
+      })
+      .catch((error) => setWarnings([{ file: 'manifest', errors: [error.message] }]));
+  }, []);
   const sectors = useMemo(() => [...new Set(datasets.flatMap((dataset) => dataset.sectors))].sort(), [datasets]); const rows = useMemo(() => aggregate(datasets), [datasets]); const valueFor = (row) => sector === 'ALL' ? sectors.reduce((sum, current) => sum + (Number(row[current]) || 0), 0) : Number(row[sector]) || 0; const max = Math.max(...rows.map(valueFor), 0), color = scaleSequential(palettes[palette]).domain([0, Math.log1p(max || 1)]);
   const layer = new H3HexagonLayer({ id: 'h3', data: rows, extruded: false, getHexagon: (row) => row.h3_id, getFillColor: (row) => { const c = rgb(color(Math.log1p(valueFor(row)))); return [c.r, c.g, c.b, 190]; }, getLineColor: (row) => row.h3_id === selected?.h3_id ? [235, 65, 65, 255] : [0, 0, 0, 0], getLineWidth: (row) => row.h3_id === selected?.h3_id ? 16 : 0, lineWidthMinPixels: 0, pickable: true, onClick: ({ object }) => object && setSelected(object), updateTriggers: { getFillColor: [sector, palette, max], getLineColor: [selected?.h3_id], getLineWidth: [selected?.h3_id] } });
   const bboxLayers = datasets.flatMap((dataset) => dataset.polygon ? [new PolygonLayer({ id: `bbox-${dataset.file}`, data: [dataset], getPolygon: (item) => item.polygon, getFillColor: [255, 145, 0, 0], getLineColor: [255, 145, 0, 255], getLineWidth: 3, lineWidthMinPixels: 2, stroked: true, filled: true, pickable: false }), new TextLayer({ id: `bbox-label-${dataset.file}`, data: [dataset], getPosition: (item) => item.labelPosition, getText: (item) => item.file, getColor: [255, 255, 255, 255], getSize: 13, sizeUnits: 'pixels', getTextAnchor: 'start', getAlignmentBaseline: 'bottom', billboard: true, pickable: false })] : []);

@@ -22,6 +22,8 @@ In the repository settings, set **Pages → Build and deployment → Source** to
 **GitHub Actions**, then add a repository Actions secret named
 `VITE_MAPBOX_TOKEN` containing a public Mapbox token with appropriate URL
 restrictions, either as a repository secret or as a secret in the
-`github-pages` environment. Pushes to `preview_app` build the app and publish
-`dist/`; the Vite base path is derived from the repository name for project
-Pages URLs.
+`github-pages` environment. If the Mapbox token has URL restrictions, allow
+`https://ischlo.github.io/`; browsers send only the site origin when requesting
+Mapbox tiles, not the repository path. Pushes to `preview_app` build the app
+and publish `dist/`; the Vite base path is derived from the repository name
+for project Pages URLs.
