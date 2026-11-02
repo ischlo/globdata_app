@@ -1,0 +1,4 @@
+.brand { font-size: 0; }
+.brand::before { content: 'GlobEconData'; font-size: 12px; }
+.brand span { font-size: 0; }
+.brand span::after { content: 'EXPLORER'; font-size: 12px; }

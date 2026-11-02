@@ -1,0 +1,13 @@
+# Environment files and local secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+dist/
+.DS_Store
+
+# Local generated data manifest
+data/manifest.json
+public/data/

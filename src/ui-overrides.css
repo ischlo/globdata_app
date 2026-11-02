@@ -1,0 +1,21 @@
+aside {
+  z-index: 2;
+  background: #0d151ccc;
+}
+
+aside h1 {
+  margin: 0 0 18px;
+  font-size: 24px;
+  font-weight: 500;
+  color: #fff;
+}
+
+.selected-id {
+  margin: 0 0 20px;
+  color: #fff;
+  font-size: 12px;
+}
+
+.selected-id span { color: #aeb8c2; }
+.distribution-title { margin: 18px 0 8px; font-size: 13px; color: #e7edf2; }
+.show-location { width: 100%; margin-top: 12px; }

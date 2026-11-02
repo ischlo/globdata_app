@@ -1,0 +1,17 @@
+.controls .sector-info {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: -1px;
+  width: 280px;
+  max-height: 220px;
+  margin: 0;
+  overflow: auto;
+  padding: 14px;
+  background: #101820ef;
+  border: 1px solid #34414d;
+  border-radius: 6px;
+  box-shadow: 0 8px 30px #0008;
+}
+
+.controls .sector-info h3 { margin: 0 0 8px; }
+.controls .sector-info p { margin: 0; }
